@@ -5,6 +5,7 @@ import serial.tools.list_ports
 import logging
 from pubsub import pub
 import asyncio
+import json
 from WebsocketConnectionManager import WsConnectionManager
 
 
@@ -75,23 +76,67 @@ class SEEKR_Device:
         self.sp.close()
         self.sp = None
 
-    def send_cmd(self, cmd: str):
+    def handle_ws_serial_connect(self, json_data: dict):
         """
-        Write data to the serial port.
-
-        @param: cmd: Data to write to the serial port.
+        Handle the incoming request to connect the serial port with the given
+        serial port and baud rate.
         """
-        if BUFFERED_WRITE:
-            # Reduce the write size to single bytes
-            cmd = cmd + "\r\n"
+        self.connect(json_data["port"], json_data["baud"])
 
-            # Break up the characters to send characters slower
-            for serial_char in cmd:
-                self.sp.write(serial_char.encode('Ascii'))
-                time.sleep(WRITE_WAIT_TIME)
+    def handle_ws_serial_disconnect(self):
+        self.disconnect()
+
+    def process_cmd(self, json_data: dict):
+        """
+        Process the JSON command.  Then write it to 
+        the serial port.
+
+        @param: json_data: Data to write to the serial port.
+        """
+        logging.debug("Send_cmd to serial port: " + str(json_data))
+        # Check the command
+        if(json_data["cmd"] == "serial_connect"):
+            logging.debug("Connect serial port")
+            self.handle_ws_serial_connect(json_data)
+            return
+        
+        # Write command to serial port
+        self.write_json_cmd(json_data)
+
+    def write_json_cmd(self, json_data: dict):
+        """
+        Write the JSON data to the serial port.
+
+        @param json_data: JSON command.
+        """
+        # Convert the JSON dict to a string
+        cmd = json.dumps(json_data)
+
+        # Write the string
+        self. write_raw_data(cmd)
+
+
+    
+    def write_raw_data(self, cmd: str):
+        """
+        Write a raw string to the serial port.
+
+        @param: cmd: String to write to the serial port.
+        """
+        # Make sure the serial port is connected
+        if self.sp and self.sp.is_open:
+            if BUFFERED_WRITE:
+                # This version will reduce the write size to single bytes
+                # Break up the characters to send characters slower
+                cmd = cmd + "\r\n"
+                for serial_char in cmd:
+                    self.sp.write(serial_char.encode('Ascii'))
+                    time.sleep(WRITE_WAIT_TIME)
+            else:
+                # Write data all at once
+                self.sp.write((cmd + "\r\n").encode())
         else:
-            # Write data all at once
-            self.sp.write((cmd + "\r\n").encode())
+            logging.debug("Serial port is not connected")
 
 
     async def ws_write(self, data: str):

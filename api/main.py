@@ -1,8 +1,9 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from websocket_handler import WebsocketHandler
 from starlette.middleware.cors import CORSMiddleware
 import logging
+import json
 from WebsocketConnectionManager import WsConnectionManager
 
 logging.basicConfig(level=logging.DEBUG)
@@ -31,6 +32,27 @@ async def root():
     API Root call.
     """
     return {"data": "SEEKR API", "version": "1.0.0"}
+
+@app.get("/available_ports")
+async def get_available_ports():
+    ports = ws_handler.get_serial_ports()
+    logging.debug("Available Ports Requested")
+
+    port_list = []
+    for port in ports:
+        port_info = {}
+        port_info["device"] = port.device
+        port_info["name"] = port.name
+        port_info["desc"] = port.description
+        port_info["hwid"] = port.hwid
+        port_info["location"] = port.location
+        port_info["interface"] = port.interface
+        logging.debug("Port: {} {} {}".format(port_info["device"], port_info["name"], port_info["desc"], port_info["hwid"], port_info["location"], port_info["interface"]))
+
+        port_list.append(port_info)
+
+    return JSONResponse({"ports": port_list})
+
 
 
 @app.websocket("/ws")

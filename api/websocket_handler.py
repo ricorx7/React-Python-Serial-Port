@@ -21,10 +21,8 @@ class WebsocketHandler:
         self.serialport_port = ""
         self.serialport_port_list = self.get_serial_ports()   
 
-        self.serial_port = "/dev/tty.usbserial-FT0TCWAS"
-        self.baud_rate = 115200
         self.seekr = SEEKR_Device(ws_manager)
-        self.seekr.connect(self.serial_port, self.baud_rate)
+
 
     def get_serial_ports(self) -> list:
         """!
@@ -42,12 +40,16 @@ class WebsocketHandler:
             json_data = json.loads(data)
         except ValueError as er:
             logging.error("Message not JSON: " + data)
+
+            # Not a JSON object, so write the raw data to the serial port
+            self.seekr.write_raw_data(data)
+
             return False
 
         # Check for the command
         if "cmd" in json_data:
-            logging.debug("Command Received")
-            self.seekr.send_cmd(json_data["cmd"])
+            logging.debug("JSON Command Received")
+            self.seekr.process_cmd(json_data)
 
         return True
 

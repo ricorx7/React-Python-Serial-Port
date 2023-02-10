@@ -5,6 +5,11 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import React, { useState, useEffect, useRef } from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
+import axios from 'axios';
+import MenuItem from '@mui/material/MenuItem';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import ButtonGroup from '@mui/material/ButtonGroup';
+
 
 /**
  * Serial Port page.  This will handle a connection to a serial port.
@@ -13,12 +18,14 @@ import useWebSocket, { ReadyState } from 'react-use-websocket';
 export default function SerialPortPage() {
 
     // UI References to call in code
-    const serialConsoleTextFieldRef = useRef(null);
+    const serialConsoleTextFieldRef = useRef<HTMLTextAreaElement>(null);
 
     // State Variables
     const [serialInputText, setSerialInputText] = useState("");
     const [serialCmdTxt, setSerialCmdTxt] = useState("");
-    const [socketUrl, setSocketUrl] = useState("ws://127.0.0.1:8000/ws")
+    const [socketUrl, setSocketUrl] = useState("ws://127.0.0.1:8000/ws");
+    const [serialPortList, setSerialPortList] = useState<string[]>([]);
+    const [selectedSerialPortList, setSelectedSerialPort] = useState("");
 
     // Setup websocket
     const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
@@ -30,7 +37,26 @@ export default function SerialPortPage() {
         [ReadyState.CLOSING]: 'Closing',
         [ReadyState.CLOSED]: 'Closed',
         [ReadyState.UNINSTANTIATED]: 'Uninstantiated',
-      }[readyState];
+    }[readyState];
+
+    // On startup load all the serial ports available to connect to.
+    // Set the list of serial ports.
+    useEffect(() => {
+        // axios
+        axios.get('http://localhost:8000/available_ports')
+            .then(response => {
+                console.log(response.data);
+
+                var serialList: string[];
+                serialList = []
+                response.data["ports"].map((port: any) => {
+                    serialList.push(port.device);
+                });
+                setSerialPortList(serialList);
+            }, error => {
+                console.log(error);
+            });
+    }, []);
 
     // Update the serial input messages when lastMessage from websocket is received.
     useEffect(() => {
@@ -38,30 +64,59 @@ export default function SerialPortPage() {
         if (lastMessage !== null) {
             setSerialInputText(s => s + lastMessage.data);
 
-            // Autoscroll to the bottom
-            serialConsoleTextFieldRef.current.scrollTop = serialConsoleTextFieldRef.current.scrollHeight;
+            if (serialConsoleTextFieldRef.current != null) {
+                // Autoscroll to the bottom
+                serialConsoleTextFieldRef.current.scrollTop = serialConsoleTextFieldRef.current.scrollHeight;
+            }
         }
-    },[lastMessage, setSerialInputText]);
+    }, [lastMessage, setSerialInputText]);
 
     /**
      * Handle the send command button click.
      * This will call the API to call the serial port.
      * The websocket will return the response.
      */
-    const handleSendCmdClick = (event) => {
+    const handleSendCmdClick = () => {
         console.log("Send Command: " + serialCmdTxt);
         setSerialInputText(serialInputText + "Send Command: " + serialCmdTxt + "\n");
 
         // Send to websocket the message
-        sendMessage(JSON.stringify({"cmd": serialCmdTxt}));
+        sendMessage(serialCmdTxt);
+    };
+
+    /**
+     * Set the serial port selected.
+     * @param event 
+     */
+    const handleSelectedSerialPortChange = (event: SelectChangeEvent) => {
+        setSelectedSerialPort(event.target.value as string);
     };
 
     /**
      * Update the command value to send to the serial port.
      * @param {*} event 
      */
-    const updateSendCmd = (event) => {
+    const updateSendCmd = (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
         setSerialCmdTxt(event.target.value);
+    }
+
+    /**
+     * Send command to connect serial port.
+     */
+    const handleSerialConnectCmdClick = () => {
+        if(selectedSerialPortList !== "")
+        {
+            // Send to websocket the message
+            sendMessage('{"cmd": "serial_connect", "port": "' + selectedSerialPortList + '", "baud": 115200}');
+        }
+    }
+
+    /**
+     * Send command to disconnect serial port.
+     */
+    const handleSerialDisconnectCmdClick = () => {
+        // Send to websocket the message
+        sendMessage('{"cmd": "serial_disconnect"}');
     }
 
     /**
@@ -69,7 +124,7 @@ export default function SerialPortPage() {
      * Then send the command to the serial port.
      * @param {*} event 
      */
-    const handleCartInsertCmdClick = (event) => {
+    const handleCartInsertCmdClick = () => {
         setSerialCmdTxt("cart insert");
     }
 
@@ -78,16 +133,16 @@ export default function SerialPortPage() {
      * Then send the command to the serial port.
      * @param {*} event 
      */
-        const handleCartInsertJsonCmdClick = (event) => {
-            setSerialCmdTxt('{"cmd": "cart", "subcmd": "insert"}');
-        }
+    const handleCartInsertJsonCmdClick = () => {
+        setSerialCmdTxt('{"cmd": "cart", "subcmd": "insert"}');
+    }
 
     /**
      * Populate the serial send command text with the scan label.
      * Then send the command to the serial port.
      * @param {*} event 
      */
-    const handleScanLabelCmdClick = (event) => {
+    const handleScanLabelCmdClick = () => {
         setSerialCmdTxt("label scan rvp Alexander Smith 06/14/1991");
     }
 
@@ -96,7 +151,7 @@ export default function SerialPortPage() {
      * Then send the command to the serial port.
      * @param {*} event 
      */
-    const handleScanLabelJsonCmdClick = (event) => {
+    const handleScanLabelJsonCmdClick = () => {
         setSerialCmdTxt('{"cmd": "label", "subcmd": "scan", "test_type": "rvp", "first_name": "LLexander", "last_name": "Snith", "dob": "06/14/1791"}');
     }
 
@@ -105,7 +160,40 @@ export default function SerialPortPage() {
      */
     return (
         <Grid container spacing={3}>
-            <span>The WebSocket is currently {connectionStatus}</span>
+            <Grid item container xs={12}>
+                <Grid item xs={4}>
+                    <Select
+                        labelId="demo-simple-select-label"
+                        id="demo-simple-select"
+                        value={selectedSerialPortList}
+                        label="Age"
+                        onChange={handleSelectedSerialPortChange}
+                    >
+                        {serialPortList.map((name) => (
+                            <MenuItem key={name} value={name}>
+                                {name}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </Grid>
+                <Grid item xs={3}>
+                    <ButtonGroup size="large" aria-label="large button group">
+                        <Button 
+                            variant="outlined" 
+                            onClick={handleSerialConnectCmdClick}
+                            disabled={selectedSerialPortList === ""}
+                        >
+                                Connect
+                        </Button>
+                        <Button variant="outlined" onClick={handleSerialDisconnectCmdClick}>Disconnect</Button>
+                    </ButtonGroup>
+                </Grid>
+
+                <Grid item xs={4}> {/* Blank SPACER */}</Grid>
+            </Grid>
+            <Grid item xs={12}>
+                <span>The WebSocket is currently {connectionStatus}</span>
+            </Grid>
             {/* Serial Port Text Input */}
             <Grid item xs={12} md={8} lg={9}>
                 <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', minHeight: 300 }} >
