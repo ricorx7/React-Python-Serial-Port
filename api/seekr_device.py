@@ -81,9 +81,14 @@ class SEEKR_Device:
         Handle the incoming request to connect the serial port with the given
         serial port and baud rate.
         """
+        logging.debug("Connect serial port")
         self.connect(json_data["port"], json_data["baud"])
 
     def handle_ws_serial_disconnect(self):
+        """
+        Disconnect the serial port
+        """
+        logging.debug("Disconnect serial port")
         self.disconnect()
 
     def process_cmd(self, json_data: dict):
@@ -95,12 +100,23 @@ class SEEKR_Device:
         """
         logging.debug("Send_cmd to serial port: " + str(json_data))
         # Check the command
+        
+        # Serial Port Connection
         if(json_data["cmd"] == "serial_connect"):
-            logging.debug("Connect serial port")
             self.handle_ws_serial_connect(json_data)
+
+            # Do not process any further
             return
         
-        # Write command to serial port
+        # Serial Port Disconnect
+        if(json_data["cmd"] == "serial_disconnect"):
+            self.handle_ws_serial_disconnect()
+
+            # Do not process any further
+            return
+        
+        # Not a special command
+        # So write command to serial port
         self.write_json_cmd(json_data)
 
     def write_json_cmd(self, json_data: dict):
@@ -172,14 +188,18 @@ class SEEKR_Device:
         serialString = ""          
         while(self.let_thread_run):
 
-            # Wait until there is data waiting in the serial buffer
-            if(sp_shared.in_waiting > 0):
+            try:
+                # Wait until there is data waiting in the serial buffer
+                if(sp_shared.in_waiting > 0):
 
-                # Read data out of the buffer until a carraige return / new line is found
-                serialString = sp_shared.readline()
+                    # Read data out of the buffer until a carraige return / new line is found
 
-                # Print the contents of the serial data
-                logging.debug("Serial Read: " + serialString.decode('Ascii'))
+                    serialString = sp_shared.readline()
 
-                # Publish the message
-                self.ws_write_async(serialString.decode('Ascii'))
+                    # Print the contents of the serial data
+                    logging.debug("Serial Read: " + serialString.decode('Ascii'))
+
+                    # Publish the message
+                    self.ws_write_async(serialString.decode('Ascii'))
+            except serial.serialutil.SerialException as ex:
+                logging.debug("Serial Port disconnected or has an error")
