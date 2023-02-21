@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 import logging
 import json
 from WebsocketConnectionManager import WsConnectionManager
+from models import SerialPortStatus
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -26,62 +27,25 @@ app.add_middleware(
         allow_headers=["*"],
     )
 
-@app.get("/")
-async def root():
-    """
-    API Root call.
-    """
-    return {"data": "SEEKR API", "version": "1.0.0"}
-
-@app.get("/available_ports")
-async def get_available_ports():
-    ports = ws_handler.get_serial_ports()
-    logging.debug("Available Ports Requested")
-
-    port_list = []
-    for port in ports:
-        port_info = {}
-        port_info["device"] = port.device
-        port_info["name"] = port.name
-        port_info["desc"] = port.description
-        port_info["hwid"] = port.hwid
-        port_info["location"] = port.location
-        port_info["interface"] = port.interface
-        logging.debug("Port: {} {} {}".format(port_info["device"], port_info["name"], port_info["desc"], port_info["hwid"], port_info["location"], port_info["interface"]))
-
-        port_list.append(port_info)
-
-    return JSONResponse({"ports": port_list})
-
-
 @app.get("/serial_port_status")
-async def get_available_ports():
+async def get_serial_status() -> SerialPortStatus:
+    """
+    Get the status of the serial port.
+    This will return if the serial port is already connected and which 
+    port and baud rate it is using.  It will also give all the available
+    serial ports to start a connection.
+    """
     logging.debug("Serial Port Status")
 
-    # Get all the available serial ports and create a dict
-    ports = ws_handler.seekr.get_serial_port_list()
-    port_list = []
-    for port in ports:
-        port_info = {}
-        port_info["device"] = port.device
-        port_info["name"] = port.name
-        port_info["desc"] = port.description
-        port_info["hwid"] = port.hwid
-        port_info["location"] = port.location
-        port_info["interface"] = port.interface
-        logging.debug("Port: {} {} {}".format(port_info["device"], port_info["name"], port_info["desc"], port_info["hwid"], port_info["location"], port_info["interface"]))
+    # Create a model to use as the response
+    response_model = SerialPortStatus(
+        isConnected=ws_handler.seekr.serial_is_connected,
+        connectedPort=ws_handler.seekr.serial_port_path,
+        connectedBaud=ws_handler.seekr.serial_baud_rate,
+        portList=ws_handler.seekr.get_serial_port_list()
+    )
 
-        port_list.append(port_info)
-
-    # Create a response
-    response = {
-        "isConnected": ws_handler.seekr.serial_is_connected, 
-        "connectedPort": ws_handler.seekr.serial_port_path,
-        "connectedBaud": ws_handler.seekr.serial_baud_rate,
-        "portList": port_list
-        }
-
-    return JSONResponse(response)
+    return response_model
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

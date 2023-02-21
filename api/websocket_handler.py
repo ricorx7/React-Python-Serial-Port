@@ -8,6 +8,8 @@ from WebsocketConnectionManager import WsConnectionManager
 class WebsocketHandler:
     """
     Handle the websocket connection in the API.
+    The websocket will allow live serial communication to the
+    web interface.
     """
 
     def __init__(self, ws_manager: WsConnectionManager) -> None:
@@ -18,9 +20,6 @@ class WebsocketHandler:
         self.ws_manager = ws_manager
         self.seekr = SEEKR_Device(ws_manager)
 
-
-
-    
     def handle_commands(self, data: str, ws: WebSocket):
         """
         Handle commands received from the websocket connection.

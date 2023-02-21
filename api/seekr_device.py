@@ -60,10 +60,21 @@ class SEEKR_Device:
         # Get serial ports
         ports = serial.tools.list_ports.comports()
 
-        for port, desc, hwid in sorted(ports):
-                print("{}: {} [{}]".format(port, desc, hwid))
+        # Create a dictionary for all the ports with the details
+        port_list = []
+        for port in ports:
+            port_info = {}
+            port_info["device"] = port.device
+            port_info["name"] = port.name
+            port_info["desc"] = port.description
+            port_info["hwid"] = port.hwid
+            port_info["location"] = port.location
+            port_info["interface"] = port.interface
+            logging.debug("Port: {} {} {}".format(port_info["device"], port_info["name"], port_info["desc"], port_info["hwid"], port_info["location"], port_info["interface"]))
 
-        return ports
+            port_list.append(port_info)
+
+        return port_list
 
 
     def connect(self, serial_port: str = "/dev/tty.usbserial-FTDVSTTW", serial_baud: int = 115200):
