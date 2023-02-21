@@ -16,7 +16,13 @@ BUFFERED_WRITE = True
 # Wait between each byte written
 WRITE_WAIT_TIME = 25/1000       # 25 milliseconds
 
-
+# Default values if none found from device
+DEFAULT_OPTICS_VISIBLE_LIGHT_STATUS = 22
+DEFAULT_OPTICS_FLUORESCENCE_STATUS = 22
+DEFAULT_OPTICS_TEMPERATURE = 30
+DEFAULT_OPTICS_EXPOSURE = 30
+DEFAULT_OPTICS_GAIN = 40
+DEFAULT_OPTICS_MODE = "trigger"
 
 class SEEKR_Device:
 
@@ -29,6 +35,20 @@ class SEEKR_Device:
         #self.sp = serial.Serial("/dev/tty.usbserial-FT0TCWAS", 115200)
         self.let_thread_run = False
         self.sp = None
+
+        self.serial_port_path = ""
+        self.serial_baud_rate = 115200
+        self.serial_is_connected = False
+
+        self.optics_state = {}
+        self.optics_state["is_init"] = False
+        self.optics_state["cart_engaged"] = False
+        self.optics_state["visible_light_status"] = DEFAULT_OPTICS_VISIBLE_LIGHT_STATUS
+        self.optics_state["fluor_light_status"] = DEFAULT_OPTICS_FLUORESCENCE_STATUS
+        self.optics_state["temperature"] = DEFAULT_OPTICS_TEMPERATURE
+        self.optics_state["mode"] = DEFAULT_OPTICS_MODE
+        self.optics_state["exposure"] = DEFAULT_OPTICS_EXPOSURE
+        self.optics_state["gain"] = DEFAULT_OPTICS_GAIN
 
 
     def get_serial_port_list(self):
@@ -64,6 +84,11 @@ class SEEKR_Device:
         # Set the flag to let the loops run
         self.let_thread_run = True
 
+        # Set flag that serial is connected
+        self.serial_is_connected = True
+        self.serial_port_path = serial_port
+        self.serial_baud_rate = serial_baud
+
         # Start the read thread
         reading = threading.Thread(target=self.read_thread, args=(self.sp,))
         reading.start()
@@ -73,8 +98,10 @@ class SEEKR_Device:
         Stop all the threads.
         """
         self.let_thread_run = False
-        self.sp.close()
-        self.sp = None
+        if self.sp:
+            self.sp.close()
+            self.sp = None
+            self.serial_is_connected = False
 
     def handle_ws_serial_connect(self, json_data: dict):
         """
@@ -193,13 +220,12 @@ class SEEKR_Device:
                 if(sp_shared.in_waiting > 0):
 
                     # Read data out of the buffer until a carraige return / new line is found
-
                     serialString = sp_shared.readline()
 
                     # Print the contents of the serial data
                     logging.debug("Serial Read: " + serialString.decode('Ascii'))
 
-                    # Publish the message
+                    # Echo the message back
                     self.ws_write_async(serialString.decode('Ascii'))
             except serial.serialutil.SerialException as ex:
                 logging.debug("Serial Port disconnected or has an error")

@@ -16,23 +16,17 @@ class WebsocketHandler:
         Get the latest lists of available serial ports.
         """
         self.ws_manager = ws_manager
-
-        self.serialport_connected = False
-        self.serialport_port = ""
-        self.serialport_port_list = self.get_serial_ports()   
-
         self.seekr = SEEKR_Device(ws_manager)
 
 
-    def get_serial_ports(self) -> list:
-        """!
-        Get a list of serial ports.
-        
-        @return List of serial ports available.
-        """
-        return list(serial.tools.list_ports.comports())
+
     
     def handle_commands(self, data: str, ws: WebSocket):
+        """
+        Handle commands received from the websocket connection.
+        These commands are received from the web interface and passed
+        to the serial port.
+        """
         logging.debug("Websocket Handler received command: " + data)
 
         # Convert the data to a json object

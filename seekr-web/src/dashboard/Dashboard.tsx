@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { styled, createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import MuiDrawer from '@mui/material/Drawer';
@@ -19,6 +19,12 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { mainListItems, secondaryListItems } from './listItems';
 import { Outlet } from 'react-router-dom';
+import MenuItem from '@mui/material/MenuItem';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import ButtonGroup from '@mui/material/ButtonGroup';
+import Button from '@mui/material/Button';
+import axios from 'axios';
+
 
 function Copyright(props: any) {
   return (
@@ -86,7 +92,8 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
 const mdTheme = createTheme();
 
 function DashboardContent() {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = useState(true);
+
   const toggleDrawer = () => {
     setOpen(!open);
   };
@@ -164,7 +171,9 @@ function DashboardContent() {
           <Toolbar />
           <Container maxWidth={false}  sx={{ mt: 4, mb: 4 }}>
               {/* Router will display this section */}
-              <Outlet />
+              <Grid item>
+                <Outlet />
+              </Grid>
             <Copyright sx={{ pt: 4 }} />
           </Container>
         </Box>
